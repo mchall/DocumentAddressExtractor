@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using OpenCvSharp;
 using System.Linq;
+using Tesseract;
 
 namespace OcrAssist
 {
@@ -18,6 +19,18 @@ namespace OcrAssist
         public MainWindow()
         {
             InitializeComponent();
+            OcrTest();
+        }
+
+        private void OcrTest()
+        {
+            TesseractEngine engine = new TesseractEngine("./tessdata", "eng", EngineMode.Default);
+
+            var pix = Pix.LoadFromFile(@"ocr.tiff");
+            using (var page = engine.Process(pix))
+            {
+                var text = page.GetText();
+            }
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -93,6 +106,7 @@ namespace OcrAssist
                 }
 
                 //Cv2.ImWrite("ocr.tiff", ocr);
+                //OcrTest();
 
                 MemoryStream ms = new MemoryStream();
                 color.WriteToStream(ms);
