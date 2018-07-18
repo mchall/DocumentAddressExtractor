@@ -103,7 +103,9 @@ namespace OcrAssist
                     }
                 }
 
-                var grouped = GroupRects(filtered);
+                filtered = ZoneOfInterest(filtered, color);
+
+                var grouped = GroupRects(filtered, color);
 
                 foreach (var group in grouped)
                 {
@@ -257,7 +259,37 @@ namespace OcrAssist
             return segmentCount - (prevWasZero ? 1 : 0);
         }
 
-        private List<List<Cv.Rect>> GroupRects(List<Cv.Rect> rects)
+        private List<Cv.Rect> ZoneOfInterest(List<Cv.Rect> input, Mat debug)
+        {
+            List<Cv.Rect> output = new List<Cv.Rect>();
+
+            for (int i = 0; i < input.Count; i++)
+            {
+                var l = new Cv.Rect(input[i].X + input[i].Width, input[i].Y, input[i].Width / 2, 2);
+                var r = new Cv.Rect(input[i].X - (input[i].Width / 2), input[i].Y, input[i].Width / 2, 2);
+
+                bool hasIntersection = false;
+                for (int j = 0; j < input.Count; j++)
+                {
+                    if (i == j)
+                        continue;
+
+                    if (l.IntersectsWith(input[j]) || r.IntersectsWith(input[j]))
+                    {
+                        hasIntersection = true;
+                        break;
+                    }
+                }
+
+                if (!hasIntersection)
+                {
+                    output.Add(input[i]);
+                }
+            }
+            return output;
+        }
+
+        private List<List<Cv.Rect>> GroupRects(List<Cv.Rect> rects, Mat debug)
         {
             rects.Sort((l, r) => l.Y.CompareTo(r.Y));
 
@@ -276,17 +308,14 @@ namespace OcrAssist
 
                 for (int j = i + 1; j < rects.Count; j++)
                 {
-                    if (i == j)
-                        continue;
-
-                    //var l = new Cv.Rect(current.X, current.Y, current.Width, (int)(current.Height + 15));
                     var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + (int)(rects[i].Height * 0.75));
                     var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
 
-                    //TODO: x intersection - need significant overlap
-
                     if (l.IntersectsWith(r))
                     {
+                        //todo: left or right are clear of zones of interest
+
+
                         current = current.Union(rects[j]);
 
                         ignoreIndices.Add(j);
@@ -315,8 +344,11 @@ namespace OcrAssist
 
                     for (int j = i + 1; j < rects.Count; j++)
                     {
-                        if (i == j)
+                        if (rects[j].Height < 5 || rects[j].Width < 5)
+                        {
+                            ignoreIndices.Add(j);
                             continue;
+                        }
 
                         var l = new Cv.Rect(rects[i].X, rects[i].Y, rects[i].Width, rects[i].Height);
                         var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
