@@ -9,6 +9,7 @@ using OpenCvSharp;
 using System.Linq;
 using Tesseract;
 using Cv = OpenCvSharp;
+using System.Text;
 
 namespace OcrAssist
 {
@@ -17,20 +18,20 @@ namespace OcrAssist
     /// </summary>
     public partial class MainWindow : System.Windows.Window
     {
+        private TesseractEngine _ocr;
+
         public MainWindow()
         {
             InitializeComponent();
-            OcrTest();
+            _ocr = new TesseractEngine("./tessdata", "eng", EngineMode.Default);
         }
 
-        private void OcrTest()
+        private string TryOcr(byte[] buffer)
         {
-            TesseractEngine engine = new TesseractEngine("./tessdata", "eng", EngineMode.Default);
-
-            var pix = Pix.LoadFromFile(@"ocr.tiff");
-            using (var page = engine.Process(pix))
+            var pix = Pix.LoadTiffFromMemory(buffer);
+            using (var page = _ocr.Process(pix))
             {
-                var text = page.GetText();
+                return page.GetText();
             }
         }
 
@@ -117,6 +118,8 @@ namespace OcrAssist
                     Cv2.Rectangle(color, rect, Scalar.Purple, 6);
                 }
 
+                StringBuilder sb = new StringBuilder();
+
                 Mat ocr = new Mat(thresh.Rows, thresh.Cols, thresh.Type());
                 foreach(var group in grouped)
                 {
@@ -132,6 +135,21 @@ namespace OcrAssist
                             Mat ocrRoi = new Mat(ocr, rect);
                             roi.CopyTo(ocrRoi);
                         }
+
+                        var groupRect = group.First();
+                        foreach (var rect in group)
+                        {
+                            groupRect = groupRect.Union(rect);
+                        }
+
+                        Mat groupRoi = new Mat(thresh, groupRect);
+
+                        byte[] buff;
+                        if (Cv2.ImEncode(".tiff", groupRoi, out buff))
+                        {
+                            sb.AppendLine(TryOcr(buff));
+                            sb.AppendLine();
+                        }
                     }
                     else
                     {
@@ -142,8 +160,9 @@ namespace OcrAssist
                     }
                 }
 
+                Ocr.Text = sb.ToString();
+
                 //Cv2.ImWrite("ocr.tiff", ocr);
-                //OcrTest();
 
                 MemoryStream ms = new MemoryStream();
                 color.WriteToStream(ms);
