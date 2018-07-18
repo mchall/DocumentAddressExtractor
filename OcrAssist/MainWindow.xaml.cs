@@ -105,10 +105,22 @@ namespace OcrAssist
 
                 var grouped = GroupRects(filtered);
 
+                foreach (var group in grouped)
+                {
+                    var rect = group.First();
+                    foreach (var r in group)
+                    {
+                        rect = rect.Union(r);
+                    }
+                    Cv2.Rectangle(color, rect, Scalar.Purple, 6);
+                }
+
                 Mat ocr = new Mat(thresh.Rows, thresh.Cols, thresh.Type());
                 foreach(var group in grouped)
                 {
-                    if (group.Count > 1 && group.Count < 6)
+                    bool tooLarge = group.Exists(g => g.Width > src.Width * 0.5 || g.Height > src.Height * 0.25);
+
+                    if (!tooLarge && group.Count > 1 && group.Count < 6)
                     {
                         foreach (var rect in group)
                         {
@@ -123,7 +135,7 @@ namespace OcrAssist
                     {
                         foreach (var rect in group)
                         {
-                            Cv2.Rectangle(color, rect, Scalar.Red, 4);
+                            Cv2.Rectangle(color, rect, Scalar.Orange, 4);
                         }
                     }
                 }
@@ -267,14 +279,15 @@ namespace OcrAssist
                     if (i == j)
                         continue;
 
-                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height);
+                    //var l = new Cv.Rect(current.X, current.Y, current.Width, (int)(current.Height + 15));
+                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + (int)(rects[i].Height * 0.75));
                     var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
-                    l.Inflate(0, 15);
-                    r.Inflate(0, 15);
+
+                    //TODO: x intersection - need significant overlap
 
                     if (l.IntersectsWith(r))
                     {
-                        current = l.Union(r);
+                        current = current.Union(rects[j]);
 
                         ignoreIndices.Add(j);
                         group.Add(rects[j]);
