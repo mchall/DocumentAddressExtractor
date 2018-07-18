@@ -8,6 +8,7 @@ using Microsoft.Win32;
 using OpenCvSharp;
 using System.Linq;
 using Tesseract;
+using Cv = OpenCvSharp;
 
 namespace OcrAssist
 {
@@ -46,19 +47,19 @@ namespace OcrAssist
                 Cv2.AdaptiveThreshold(src, thresh, 255, AdaptiveThresholdTypes.MeanC, ThresholdTypes.Binary, 25, 10);
                 Cv2.BitwiseNot(thresh, thresh);
 
-                /*var vStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(1, src.Rows / 50));
+                /*var vStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(1, src.Rows / 50));
                 Mat vertical = new Mat();
-                Cv2.Erode(thresh, vertical, vStructure, new OpenCvSharp.Point(-1, -1));
-                Cv2.Dilate(vertical, vertical, vStructure, new OpenCvSharp.Point(-1, -1)); 
+                Cv2.Erode(thresh, vertical, vStructure, new Cv.Point(-1, -1));
+                Cv2.Dilate(vertical, vertical, vStructure, new Cv.Point(-1, -1)); 
 
-                var hStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(src.Cols / 50, 1));
+                var hStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, 1));
                 Mat horizontal = new Mat();
-                Cv2.Erode(thresh, horizontal, hStructure, new OpenCvSharp.Point(-1, -1));
-                Cv2.Dilate(horizontal, horizontal, hStructure, new OpenCvSharp.Point(-1, -1)); 
+                Cv2.Erode(thresh, horizontal, hStructure, new Cv.Point(-1, -1));
+                Cv2.Dilate(horizontal, horizontal, hStructure, new Cv.Point(-1, -1)); 
 
                 Mat add = new Mat();
                 Cv2.AddWeighted(vertical, 255, horizontal, 255, 0, add);
-                //var dilateElement = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(src.Cols / 50, src.Rows / 50));
+                //var dilateElement = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, src.Rows / 50));
                 //Cv2.Dilate(add, add, dilateElement);
                 Mat scaled = thresh - add;*/
 
@@ -67,41 +68,63 @@ namespace OcrAssist
                 //Cv2.PyrUp(scaled, scaled);
 
                 Mat grad = new Mat();
-                //var morphKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new OpenCvSharp.Size(3, 3));
-                var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(16, 1)); //todo: based on width
+                //var morphKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Cv.Size(3, 3));
+                var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(16, 1)); //todo: based on width
                 Cv2.MorphologyEx(scaled, grad, MorphTypes.Gradient, morphKernel);
 
                 Mat bw = new Mat();
                 Cv2.Threshold(grad, bw, 32, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
 
-                OpenCvSharp.Point[][] contours;
+                Cv.Point[][] contours;
                 HierarchyIndex[] hierarchy;
                 Cv2.FindContours(bw, out contours, out hierarchy, RetrievalModes.CComp, ContourApproximationModes.ApproxSimple);
 
-                var rectangles = new List<OpenCvSharp.Rect>();
+                var rectangles = new List<Cv.Rect>();
                 for (int i = 0; i < hierarchy.Length; i++)
                 {
                     rectangles.Add(Cv2.BoundingRect(contours[i]));
                 }
 
                 var hExpand = (int)Math.Round(src.Width * 0.01, 0);
-                var merged = MergeRects(rectangles.ToArray(), src.Width, src.Height, hExpand);
+                var merged = MergeRects(rectangles, src.Width, src.Height, hExpand);
 
-                Mat ocr = new Mat(thresh.Rows, thresh.Cols, thresh.Type());
-                for (int i = 0; i < merged.Length; i++)
+                List<Cv.Rect> filtered = new List<Cv.Rect>();
+                for (int i = 0; i < merged.Count; i++)
                 {
                     Mat roi = new Mat(thresh, merged[i]);
 
                     if (HeuristicCheck(roi))
                     {
-                        Cv2.Rectangle(color, merged[i], Scalar.Green, 4);
-
-                        Mat ocrRoi = new Mat(ocr, merged[i]);
-                        roi.CopyTo(ocrRoi);
+                        filtered.Add(merged[i]);
                     }
                     else
                     {
                         Cv2.Rectangle(color, merged[i], Scalar.Red, 4);
+                    }
+                }
+
+                var grouped = GroupRects(filtered);
+
+                Mat ocr = new Mat(thresh.Rows, thresh.Cols, thresh.Type());
+                foreach(var group in grouped)
+                {
+                    if (group.Count > 1 && group.Count < 6)
+                    {
+                        foreach (var rect in group)
+                        {
+                            Cv2.Rectangle(color, rect, Scalar.Green, 4);
+
+                            Mat roi = new Mat(thresh, rect);
+                            Mat ocrRoi = new Mat(ocr, rect);
+                            roi.CopyTo(ocrRoi);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var rect in group)
+                        {
+                            Cv2.Rectangle(color, rect, Scalar.Red, 4);
+                        }
                     }
                 }
 
@@ -128,7 +151,7 @@ namespace OcrAssist
 
         private bool HeuristicCheck(Mat roi)
         {
-            /*var erosion = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(2, 2));
+            /*var erosion = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(2, 2));
             Mat erodedRoi = new Mat();
             Cv2.Erode(roi, erodedRoi, erosion);*/
 
@@ -222,40 +245,73 @@ namespace OcrAssist
             return segmentCount - (prevWasZero ? 1 : 0);
         }
 
-        private OpenCvSharp.Rect[] MergeRects(OpenCvSharp.Rect[] rects, int width, int height, int hInflate = 0, int vInflate = 0, int iterations = 2)
+        private List<List<Cv.Rect>> GroupRects(List<Cv.Rect> rects)
+        {
+            rects.Sort((l, r) => l.Y.CompareTo(r.Y));
+
+            List<List<Cv.Rect>> grouped = new List<List<Cv.Rect>>();
+            List<int> ignoreIndices = new List<int>();
+
+            for (int i = 0; i < rects.Count; i++)
+            {
+                if (ignoreIndices.Contains(i))
+                    continue;
+
+                var current = rects[i];
+
+                List<Cv.Rect> group = new List<Cv.Rect>();
+                group.Add(rects[i]);
+
+                for (int j = i + 1; j < rects.Count; j++)
+                {
+                    if (i == j)
+                        continue;
+
+                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height);
+                    var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
+                    l.Inflate(0, 15);
+                    r.Inflate(0, 15);
+
+                    if (l.IntersectsWith(r))
+                    {
+                        current = l.Union(r);
+
+                        ignoreIndices.Add(j);
+                        group.Add(rects[j]);
+                    }
+                }
+
+                grouped.Add(group);
+            }
+
+            return grouped;
+        }
+
+        private List<Cv.Rect> MergeRects(List<Cv.Rect> rects, int width, int height, int hInflate = 0, int vInflate = 0, int iterations = 2)
         {
             List<int> ignoreIndices = new List<int>();
 
-            var sorted = rects.ToList();
-            sorted.Sort((l, r) => l.X.CompareTo(r.X));
-            rects = sorted.ToArray();
+            rects.Sort((l, r) => l.X.CompareTo(r.X));
 
             for (int x = 0; x < iterations; x++)
             {
-                for (int i = 0; i < rects.Length; i++)
+                for (int i = 0; i < rects.Count; i++)
                 {
                     if (ignoreIndices.Contains(i))
                         continue;
 
-                    /*if (rects[i].Width > width * 0.30 || rects[i].Height > height * 0.05)
-                    {
-                        ignoreIndices.Add(i);
-                        continue;
-                    }*/
-
-                    for (int j = i + 1; j < rects.Length; j++)
+                    for (int j = i + 1; j < rects.Count; j++)
                     {
                         if (i == j)
                             continue;
 
-                        var l = new OpenCvSharp.Rect(rects[i].X, rects[i].Y, rects[i].Width, rects[i].Height);
-                        var r = new OpenCvSharp.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
+                        var l = new Cv.Rect(rects[i].X, rects[i].Y, rects[i].Width, rects[i].Height);
+                        var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
                         l.Inflate(hInflate / 2, vInflate / 2);
                         r.Inflate(hInflate / 2, vInflate / 2);
 
                         if (l.IntersectsWith(r))
                         {
-                            //rects[i] = rects[i].Union(rects[j]);
                             var union = rects[i].Union(rects[j]);
 
                             if (union.Width < width * 0.30 && union.Height < height * 0.05)
@@ -268,20 +324,20 @@ namespace OcrAssist
                 }
             }
 
-            var merged = new List<OpenCvSharp.Rect>();
-            for (int i = 0; i < rects.Length; i++)
+            var merged = new List<Cv.Rect>();
+            for (int i = 0; i < rects.Count; i++)
             {
-                FixInvalidRects(ref rects[i], width, height);
+                FixInvalidRects(rects[i], width, height);
 
                 if (!ignoreIndices.Contains(i))
                 {
                     merged.Add(rects[i]);
                 }
             }
-            return merged.ToArray();
+            return merged;
         }
 
-        private static void FixInvalidRects(ref OpenCvSharp.Rect rect, int width, int height)
+        private static void FixInvalidRects(Cv.Rect rect, int width, int height)
         {
             if (rect.X < 0)
                 rect.X = 0;
