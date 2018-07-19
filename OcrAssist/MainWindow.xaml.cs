@@ -29,7 +29,7 @@ namespace OcrAssist
         private string TryOcr(byte[] buffer)
         {
             var pix = Pix.LoadTiffFromMemory(buffer);
-            using (var page = _ocr.Process(pix))
+            using (var page = _ocr.Process(pix, PageSegMode.SingleBlock))
             {
                 return page.GetText();
             }
@@ -98,10 +98,10 @@ namespace OcrAssist
                     {
                         filtered.Add(merged[i]);
                     }
-                    else
+                    /*else
                     {
                         Cv2.Rectangle(color, merged[i], Scalar.Red, 4);
-                    }
+                    }*/
                 }
 
                 filtered = ZoneOfInterest(filtered, color);
@@ -120,21 +120,16 @@ namespace OcrAssist
 
                 StringBuilder sb = new StringBuilder();
 
-                Mat ocr = new Mat(thresh.Rows, thresh.Cols, thresh.Type());
                 foreach(var group in grouped)
                 {
                     bool tooLarge = group.Exists(g => g.Width > src.Width * 0.5 || g.Height > src.Height * 0.25);
 
                     if (!tooLarge && group.Count > 1 && group.Count < 6)
                     {
-                        foreach (var rect in group)
+                        /*foreach (var rect in group)
                         {
                             Cv2.Rectangle(color, rect, Scalar.Green, 4);
-
-                            Mat roi = new Mat(thresh, rect);
-                            Mat ocrRoi = new Mat(ocr, rect);
-                            roi.CopyTo(ocrRoi);
-                        }
+                        }*/
 
                         var groupRect = group.First();
                         foreach (var rect in group)
@@ -142,7 +137,7 @@ namespace OcrAssist
                             groupRect = groupRect.Union(rect);
                         }
 
-                        Mat groupRoi = new Mat(thresh, groupRect);
+                        Mat groupRoi = new Mat(src, groupRect);
 
                         byte[] buff;
                         if (Cv2.ImEncode(".tiff", groupRoi, out buff))
@@ -151,16 +146,16 @@ namespace OcrAssist
                             sb.AppendLine();
                         }
                     }
-                    else
+                    /*else
                     {
                         foreach (var rect in group)
                         {
-                            Cv2.Rectangle(color, rect, Scalar.Orange, 4);
+                            //Cv2.Rectangle(color, rect, Scalar.Orange, 4);
                         }
-                    }
+                    }*/
                 }
 
-                Ocr.Text = sb.ToString();
+                ResultText.Text = sb.ToString();
 
                 //Cv2.ImWrite("ocr.tiff", ocr);
 
@@ -171,14 +166,6 @@ namespace OcrAssist
                 imageSource.StreamSource = ms;
                 imageSource.EndInit();
                 Image.Source = imageSource;
-
-                MemoryStream ms2 = new MemoryStream();
-                ocr.WriteToStream(ms2);
-                var imageSource2 = new BitmapImage();
-                imageSource2.BeginInit();
-                imageSource2.StreamSource = ms2;
-                imageSource2.EndInit();
-                Original.Source = imageSource2;
             }
         }
 
