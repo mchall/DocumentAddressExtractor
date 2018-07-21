@@ -64,14 +64,10 @@ namespace OcrAssist
                 //Cv2.Dilate(add, add, dilateElement);
                 Mat scaled = thresh - add;*/
 
-                Mat scaled = src.Clone();
-                //Cv2.PyrDown(scaled, scaled);
-                //Cv2.PyrUp(scaled, scaled);
-
                 Mat grad = new Mat();
-                //var morphKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Cv.Size(3, 3));
-                var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(16, 1)); //todo: based on width
-                Cv2.MorphologyEx(scaled, grad, MorphTypes.Gradient, morphKernel);
+                var expand = ((int)Math.Round(src.Width * 0.02, 0));
+                var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(expand, 1)); 
+                Cv2.MorphologyEx(src, grad, MorphTypes.Gradient, morphKernel);
 
                 Mat bw = new Mat();
                 Cv2.Threshold(grad, bw, 32, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
@@ -86,8 +82,12 @@ namespace OcrAssist
                     rectangles.Add(Cv2.BoundingRect(contours[i]));
                 }
 
-                var hExpand = (int)Math.Round(src.Width * 0.01, 0);
-                var merged = MergeRects(rectangles, src.Width, src.Height, hExpand);
+                var merged = MergeRects(rectangles, src.Width, src.Height);
+
+                /*foreach (var r in merged)
+                {
+                    Cv2.Rectangle(color, r, Scalar.Red, 2);
+                }*/
 
                 List<Cv.Rect> filtered = new List<Cv.Rect>();
                 for (int i = 0; i < merged.Count; i++)
@@ -98,10 +98,10 @@ namespace OcrAssist
                     {
                         filtered.Add(merged[i]);
                     }
-                    /*else
+                    else
                     {
                         Cv2.Rectangle(color, merged[i], Scalar.Red, 4);
-                    }*/
+                    }
                 }
 
                 filtered = ZoneOfInterest(filtered, color);
@@ -131,7 +131,7 @@ namespace OcrAssist
                             Cv2.Rectangle(color, rect, Scalar.Green, 4);
                         }*/
 
-                        var groupRect = group.First();
+                        var groupRect = group.First(); 
                         foreach (var rect in group)
                         {
                             groupRect = groupRect.Union(rect);
@@ -274,7 +274,7 @@ namespace OcrAssist
                 var l = new Cv.Rect(input[i].X + input[i].Width, input[i].Y, input[i].Width / 2, 2);
                 var r = new Cv.Rect(input[i].X - (input[i].Width / 2), input[i].Y, input[i].Width / 2, 2);
 
-                bool hasIntersection = false;
+                int numIntersection = 0;
                 for (int j = 0; j < input.Count; j++)
                 {
                     if (i == j)
@@ -282,12 +282,11 @@ namespace OcrAssist
 
                     if (l.IntersectsWith(input[j]) || r.IntersectsWith(input[j]))
                     {
-                        hasIntersection = true;
-                        break;
+                        numIntersection++;
                     }
                 }
 
-                if (!hasIntersection)
+                if (numIntersection < 2)
                 {
                     output.Add(input[i]);
                 }
@@ -314,14 +313,11 @@ namespace OcrAssist
 
                 for (int j = i + 1; j < rects.Count; j++)
                 {
-                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + (int)(rects[i].Height * 0.75));
+                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + rects[i].Height);
                     var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
 
                     if (l.IntersectsWith(r))
                     {
-                        //todo: left or right are clear of zones of interest
-
-
                         current = current.Union(rects[j]);
 
                         ignoreIndices.Add(j);
@@ -335,41 +331,33 @@ namespace OcrAssist
             return grouped;
         }
 
-        private List<Cv.Rect> MergeRects(List<Cv.Rect> rects, int width, int height, int hInflate = 0, int vInflate = 0, int iterations = 2)
+        private List<Cv.Rect> MergeRects(List<Cv.Rect> rects, int width, int height)
         {
             List<int> ignoreIndices = new List<int>();
 
             rects.Sort((l, r) => l.X.CompareTo(r.X));
 
-            for (int x = 0; x < iterations; x++)
+            for (int i = 0; i < rects.Count; i++)
             {
-                for (int i = 0; i < rects.Count; i++)
+                if (ignoreIndices.Contains(i))
+                    continue;
+
+                for (int j = i + 1; j < rects.Count; j++)
                 {
-                    if (ignoreIndices.Contains(i))
-                        continue;
-
-                    for (int j = i + 1; j < rects.Count; j++)
+                    if (rects[j].Height < 5 || rects[j].Width < 5)
                     {
-                        if (rects[j].Height < 5 || rects[j].Width < 5)
+                        ignoreIndices.Add(j);
+                        continue;
+                    }
+
+                    if (rects[i].IntersectsWith(rects[j]))
+                    {
+                        var union = rects[i].Union(rects[j]);
+
+                        if (union.Width < width * 0.30 && union.Height < height * 0.05)
                         {
+                            rects[i] = union;
                             ignoreIndices.Add(j);
-                            continue;
-                        }
-
-                        var l = new Cv.Rect(rects[i].X, rects[i].Y, rects[i].Width, rects[i].Height);
-                        var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
-                        l.Inflate(hInflate / 2, vInflate / 2);
-                        r.Inflate(hInflate / 2, vInflate / 2);
-
-                        if (l.IntersectsWith(r))
-                        {
-                            var union = rects[i].Union(rects[j]);
-
-                            if (union.Width < width * 0.30 && union.Height < height * 0.05)
-                            {
-                                rects[i] = union;
-                                ignoreIndices.Add(j);
-                            }
                         }
                     }
                 }
