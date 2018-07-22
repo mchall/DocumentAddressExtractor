@@ -129,9 +129,7 @@ namespace OcrAssist
 
             foreach (var group in grouped)
             {
-                bool tooLarge = group.Exists(g => g.Width > src.Width * 0.5 || g.Height > src.Height * 0.25);
-
-                if (!tooLarge && group.Count > 1 && group.Count < 6)
+                if (group.Count > 1 && group.Count < 6)
                 {
                     /*foreach (var rect in group)
                     {
@@ -316,16 +314,26 @@ namespace OcrAssist
 
                 var current = rects[i];
 
+                if (current.Width > debug.Width * 0.5 || current.Height > debug.Height * 0.25)
+                    continue;
+
                 List<Cv.Rect> group = new List<Cv.Rect>();
                 group.Add(rects[i]);
 
                 for (int j = i + 1; j < rects.Count; j++)
                 {
                     var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + rects[j].Height);
-                    var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
 
-                    if (l.IntersectsWith(r))
+                    if (rects[j].Width > debug.Width * 0.5 || rects[j].Height > debug.Height * 0.25)
                     {
+                        ignoreIndices.Add(j);
+                        continue;
+                    }
+
+                    if (l.IntersectsWith(rects[j]))
+                    {
+                        Cv2.Rectangle(debug, l, Scalar.Orange, 2);
+
                         current = current.Union(rects[j]);
 
                         ignoreIndices.Add(j);
