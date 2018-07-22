@@ -108,6 +108,11 @@ namespace OcrAssist
 
             filtered = ZoneOfInterest(filtered, debug);
 
+            foreach (var rect in filtered)
+            {
+                Cv2.Rectangle(debug, rect, Scalar.Green, 2);
+            }
+
             var grouped = GroupRects(filtered, debug);
 
             foreach (var group in grouped)
@@ -117,7 +122,7 @@ namespace OcrAssist
                 {
                     rect = rect.Union(r);
                 }
-                //Cv2.Rectangle(debug, rect, Scalar.Purple, 6);
+                Cv2.Rectangle(debug, rect, Scalar.Purple, 2);
             }
 
             StringBuilder sb = new StringBuilder();
@@ -316,7 +321,7 @@ namespace OcrAssist
 
                 for (int j = i + 1; j < rects.Count; j++)
                 {
-                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + rects[i].Height);
+                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + rects[j].Height);
                     var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
 
                     if (l.IntersectsWith(r))
