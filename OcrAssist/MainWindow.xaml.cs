@@ -41,132 +41,135 @@ namespace OcrAssist
             ofd.Filter = "Image|*.jpg;*.png";
             if (ofd.ShowDialog() == true)
             {
-                Mat color = new Mat(ofd.FileName, ImreadModes.Color);
-                Mat src = new Mat(ofd.FileName, ImreadModes.GrayScale);
-
-                Mat thresh = new Mat();
-                Cv2.AdaptiveThreshold(src, thresh, 255, AdaptiveThresholdTypes.MeanC, ThresholdTypes.Binary, 25, 10);
-                Cv2.BitwiseNot(thresh, thresh);
-
-                /*var vStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(1, src.Rows / 50));
-                Mat vertical = new Mat();
-                Cv2.Erode(thresh, vertical, vStructure, new Cv.Point(-1, -1));
-                Cv2.Dilate(vertical, vertical, vStructure, new Cv.Point(-1, -1)); 
-
-                var hStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, 1));
-                Mat horizontal = new Mat();
-                Cv2.Erode(thresh, horizontal, hStructure, new Cv.Point(-1, -1));
-                Cv2.Dilate(horizontal, horizontal, hStructure, new Cv.Point(-1, -1)); 
-
-                Mat add = new Mat();
-                Cv2.AddWeighted(vertical, 255, horizontal, 255, 0, add);
-                //var dilateElement = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, src.Rows / 50));
-                //Cv2.Dilate(add, add, dilateElement);
-                Mat scaled = thresh - add;*/
-
-                Mat grad = new Mat();
-                var expand = ((int)Math.Round(src.Width * 0.02, 0));
-                var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(expand, 1)); 
-                Cv2.MorphologyEx(src, grad, MorphTypes.Gradient, morphKernel);
-
-                Mat bw = new Mat();
-                Cv2.Threshold(grad, bw, 32, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
-
-                Cv.Point[][] contours;
-                HierarchyIndex[] hierarchy;
-                Cv2.FindContours(bw, out contours, out hierarchy, RetrievalModes.CComp, ContourApproximationModes.ApproxSimple);
-
-                var rectangles = new List<Cv.Rect>();
-                for (int i = 0; i < hierarchy.Length; i++)
-                {
-                    rectangles.Add(Cv2.BoundingRect(contours[i]));
-                }
-
-                var merged = MergeRects(rectangles, src.Width, src.Height);
-
-                /*foreach (var r in merged)
-                {
-                    Cv2.Rectangle(color, r, Scalar.Red, 2);
-                }*/
-
-                List<Cv.Rect> filtered = new List<Cv.Rect>();
-                for (int i = 0; i < merged.Count; i++)
-                {
-                    Mat roi = new Mat(thresh, merged[i]);
-
-                    if (HeuristicCheck(roi))
-                    {
-                        filtered.Add(merged[i]);
-                    }
-                    else
-                    {
-                        Cv2.Rectangle(color, merged[i], Scalar.Red, 4);
-                    }
-                }
-
-                filtered = ZoneOfInterest(filtered, color);
-
-                var grouped = GroupRects(filtered, color);
-
-                foreach (var group in grouped)
-                {
-                    var rect = group.First();
-                    foreach (var r in group)
-                    {
-                        rect = rect.Union(r);
-                    }
-                    Cv2.Rectangle(color, rect, Scalar.Purple, 6);
-                }
-
-                StringBuilder sb = new StringBuilder();
-
-                foreach(var group in grouped)
-                {
-                    bool tooLarge = group.Exists(g => g.Width > src.Width * 0.5 || g.Height > src.Height * 0.25);
-
-                    if (!tooLarge && group.Count > 1 && group.Count < 6)
-                    {
-                        /*foreach (var rect in group)
-                        {
-                            Cv2.Rectangle(color, rect, Scalar.Green, 4);
-                        }*/
-
-                        var groupRect = group.First(); 
-                        foreach (var rect in group)
-                        {
-                            groupRect = groupRect.Union(rect);
-                        }
-
-                        Mat groupRoi = new Mat(src, groupRect);
-
-                        byte[] buff;
-                        if (Cv2.ImEncode(".tiff", groupRoi, out buff))
-                        {
-                            sb.AppendLine(TryOcr(buff));
-                            sb.AppendLine();
-                        }
-                    }
-                    /*else
-                    {
-                        foreach (var rect in group)
-                        {
-                            //Cv2.Rectangle(color, rect, Scalar.Orange, 4);
-                        }
-                    }*/
-                }
-
-                ResultText.Text = sb.ToString();
-
-                //Cv2.ImWrite("ocr.tiff", ocr);
-
-                MemoryStream ms = new MemoryStream();
-                color.WriteToStream(ms);
-                var imageSource = new BitmapImage();
-                imageSource.BeginInit();
-                imageSource.StreamSource = ms;
-                imageSource.EndInit();
-                Image.Source = imageSource;
+                Title = ofd.FileName;
+                TryOCR(ofd.FileName);
             }
+        }
+
+        private Mat TryOCR(string fileName)
+        {
+            Mat debug = new Mat(fileName, ImreadModes.Color);
+            Mat src = debug.CvtColor(ColorConversionCodes.RGB2GRAY);
+
+            Mat thresh = new Mat();
+            Cv2.AdaptiveThreshold(src, thresh, 255, AdaptiveThresholdTypes.MeanC, ThresholdTypes.Binary, 25, 10);
+            Cv2.BitwiseNot(thresh, thresh);
+
+            /*var vStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(1, src.Rows / 50));
+            Mat vertical = new Mat();
+            Cv2.Erode(thresh, vertical, vStructure, new Cv.Point(-1, -1));
+            Cv2.Dilate(vertical, vertical, vStructure, new Cv.Point(-1, -1)); 
+
+            var hStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, 1));
+            Mat horizontal = new Mat();
+            Cv2.Erode(thresh, horizontal, hStructure, new Cv.Point(-1, -1));
+            Cv2.Dilate(horizontal, horizontal, hStructure, new Cv.Point(-1, -1)); 
+
+            Mat add = new Mat();
+            Cv2.AddWeighted(vertical, 255, horizontal, 255, 0, add);
+            //var dilateElement = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, src.Rows / 50));
+            //Cv2.Dilate(add, add, dilateElement);
+            Mat scaled = thresh - add;*/
+
+            Mat grad = new Mat();
+            var expand = ((int)Math.Round(src.Width * 0.025, 0));
+            var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(expand, 1));
+            Cv2.MorphologyEx(src, grad, MorphTypes.Gradient, morphKernel);
+
+            Mat bw = new Mat();
+            Cv2.Threshold(grad, bw, 32, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+
+            Cv.Point[][] contours;
+            HierarchyIndex[] hierarchy;
+            Cv2.FindContours(bw, out contours, out hierarchy, RetrievalModes.CComp, ContourApproximationModes.ApproxSimple);
+
+            var rectangles = new List<Cv.Rect>();
+            for (int i = 0; i < hierarchy.Length; i++)
+            {
+                rectangles.Add(Cv2.BoundingRect(contours[i]));
+            }
+
+            var merged = MergeRects(rectangles, src.Width, src.Height);
+
+            List<Cv.Rect> filtered = new List<Cv.Rect>();
+            for (int i = 0; i < merged.Count; i++)
+            {
+                Mat roi = new Mat(thresh, merged[i]);
+
+                if (HeuristicCheck(roi))
+                {
+                    filtered.Add(merged[i]);
+                }
+                /*else
+                {
+                    Cv2.Rectangle(debug, merged[i], Scalar.Red, 4);
+                }*/
+            }
+
+            filtered = ZoneOfInterest(filtered, debug);
+
+            var grouped = GroupRects(filtered, debug);
+
+            foreach (var group in grouped)
+            {
+                var rect = group.First();
+                foreach (var r in group)
+                {
+                    rect = rect.Union(r);
+                }
+                //Cv2.Rectangle(debug, rect, Scalar.Purple, 6);
+            }
+
+            StringBuilder sb = new StringBuilder();
+
+            foreach (var group in grouped)
+            {
+                bool tooLarge = group.Exists(g => g.Width > src.Width * 0.5 || g.Height > src.Height * 0.25);
+
+                if (!tooLarge && group.Count > 1 && group.Count < 6)
+                {
+                    /*foreach (var rect in group)
+                    {
+                        Cv2.Rectangle(debug, rect, Scalar.Green, 4);
+                    }*/
+
+                    var groupRect = group.First();
+                    foreach (var rect in group)
+                    {
+                        groupRect = groupRect.Union(rect);
+                    }
+
+                    Mat groupRoi = new Mat(src, groupRect);
+
+                    byte[] buff;
+                    if (Cv2.ImEncode(".tiff", groupRoi, out buff))
+                    {
+                        sb.AppendLine(TryOcr(buff));
+                        sb.AppendLine();
+                    }
+                }
+                /*else
+                {
+                    foreach (var rect in group)
+                    {
+                        //Cv2.Rectangle(debug, rect, Scalar.Orange, 4);
+                    }
+                }*/
+            }
+
+            ResultText.Text = sb.ToString();
+
+            //Cv2.ImWrite("ocr.tiff", ocr);
+
+            MemoryStream ms = new MemoryStream();
+            debug.WriteToStream(ms);
+            var imageSource = new BitmapImage();
+            imageSource.BeginInit();
+            imageSource.StreamSource = ms;
+            imageSource.EndInit();
+            Image.Source = imageSource;
+
+            return debug;
         }
 
         private bool HeuristicCheck(Mat roi)
