@@ -89,6 +89,9 @@ namespace OcrAssist
                 rectangles.Add(Cv2.BoundingRect(contours[i]));
             }
 
+            //TODO: cut to get rid of left/right margin
+            //TODO: get rid of too small/big rectangles first (save on processing)
+
             var merged = MergeRects(rectangles, src.Width, src.Height);
 
             List<Cv.Rect> filtered = new List<Cv.Rect>();
@@ -100,18 +103,13 @@ namespace OcrAssist
                 {
                     filtered.Add(merged[i]);
                 }
-                /*else
+                else
                 {
                     Cv2.Rectangle(debug, merged[i], Scalar.Red, 4);
-                }*/
+                }
             }
 
             filtered = ZoneOfInterest(filtered, debug);
-
-            /*foreach (var rect in filtered)
-            {
-                Cv2.Rectangle(debug, rect, Scalar.Green, 2);
-            }*/
 
             var grouped = GroupRects(filtered, debug);
 
@@ -121,11 +119,6 @@ namespace OcrAssist
             {
                 if (group.Count > 1 && group.Count < 6)
                 {
-                    /*foreach (var rect in group)
-                    {
-                        Cv2.Rectangle(debug, rect, Scalar.Green, 4);
-                    }*/
-
                     var groupRect = group.First();
                     foreach (var rect in group)
                     {
@@ -143,13 +136,6 @@ namespace OcrAssist
                         sb.AppendLine();
                     }
                 }
-                /*else
-                {
-                    foreach (var rect in group)
-                    {
-                        //Cv2.Rectangle(debug, rect, Scalar.Orange, 4);
-                    }
-                }*/
             }
 
             ResultText.Text = sb.ToString();
@@ -179,9 +165,6 @@ namespace OcrAssist
             Cv2.Reduce(roi, colReduce, ReduceDimension.Column, ReduceTypes.Sum, MatType.CV_32S);
 
             //var totPercent = Math.Round((double)Cv2.CountNonZero(roi) / (roi.Width * roi.Height), 2);
-
-            //todo: count of whole image ????
-            //todo: min height/width
 
             /*Cv2.ImWrite("roi.tiff", roi);
             Cv2.ImWrite("roi-row.tiff", rowReduce);
