@@ -115,16 +115,6 @@ namespace OcrAssist
 
             var grouped = GroupRects(filtered, debug);
 
-            foreach (var group in grouped)
-            {
-                var rect = group.First();
-                foreach (var r in group)
-                {
-                    rect = rect.Union(r);
-                }
-                Cv2.Rectangle(debug, rect, Scalar.Purple, 2);
-            }
-
             StringBuilder sb = new StringBuilder();
 
             foreach (var group in grouped)
@@ -141,6 +131,8 @@ namespace OcrAssist
                     {
                         groupRect = groupRect.Union(rect);
                     }
+
+                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 2);
 
                     Mat groupRoi = new Mat(src, groupRect);
 
