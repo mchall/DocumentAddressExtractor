@@ -108,10 +108,10 @@ namespace OcrAssist
 
             filtered = ZoneOfInterest(filtered, debug);
 
-            foreach (var rect in filtered)
+            /*foreach (var rect in filtered)
             {
                 Cv2.Rectangle(debug, rect, Scalar.Green, 2);
-            }
+            }*/
 
             var grouped = GroupRects(filtered, debug);
 
@@ -220,11 +220,6 @@ namespace OcrAssist
             var csv = rowReduce.Dump(DumpFormat.Csv);
             var values = csv.Replace("[", "").Replace("]", "").Split(',').ToList().ConvertAll(s => int.Parse(s) > 0 ? 1 : 0);
 
-            /*if (values.First() != 0 || values.Last() != 0)
-            {
-                return false;
-            }*/
-
             var segments = CountSegements(values);
             if (segments < 2)
             {
@@ -236,8 +231,6 @@ namespace OcrAssist
 
         private bool HeuristicColumnCheck(Mat colReduce)
         {
-            //var colPercent = Math.Round((double)Cv2.CountNonZero(colReduce) / colReduce.Rows, 2);
-
             var csv = colReduce.Dump(DumpFormat.Csv);
             var values = csv.Replace("[", "").Replace("]", "").Replace("\n", "").Split(';').ToList().ConvertAll(s => int.Parse(s) > 0 ? 1 : 0);
 
@@ -322,22 +315,30 @@ namespace OcrAssist
 
                 for (int j = i + 1; j < rects.Count; j++)
                 {
-                    var l = new Cv.Rect(current.X, current.Y, current.Width, current.Height + rects[j].Height);
-
                     if (rects[j].Width > debug.Width * 0.5 || rects[j].Height > debug.Height * 0.25)
                     {
                         ignoreIndices.Add(j);
                         continue;
                     }
 
-                    if (l.IntersectsWith(rects[j]))
+                    if (Math.Abs(rects[j].Y - (rects[i].Y + current.Height)) > rects[j].Height * 2)
+                        break;
+
+                    var l = new Cv.Rect(rects[i].X, 0, rects[i].Width, rects[i].Height);
+                    var r = new Cv.Rect(rects[j].X, 0, rects[j].Width, rects[j].Height);
+
+                    if (l.IntersectsWith(r))
                     {
-                        Cv2.Rectangle(debug, l, Scalar.Orange, 2);
+                        var intersect = l.Intersect(r);
+                        var intersectArea = intersect.Width * intersect.Height;
+                        var lArea = rects[i].Width * rects[i].Height;
+                        var rArea = rects[j].Width * rects[j].Height;
 
-                        current = current.Union(rects[j]);
-
-                        ignoreIndices.Add(j);
-                        group.Add(rects[j]);
+                        if (intersectArea > (lArea * 0.4) && intersectArea > (rArea * 0.4))
+                        {
+                            current = current.Union(rects[j]);
+                            group.Add(rects[j]);
+                        }
                     }
                 }
 
@@ -414,3 +415,4 @@ namespace OcrAssist
         }
     }
 }
+ 
