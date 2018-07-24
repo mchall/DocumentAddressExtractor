@@ -104,7 +104,6 @@ namespace OcrAssist
             }
 
             //TODO: cut to get rid of left/right margin
-            //TODO: get rid of too small/big rectangles first (save on processing)
 
             var merged = MergeRects(rectangles, src.Width, src.Height);
 
@@ -316,8 +315,8 @@ namespace OcrAssist
                         continue;
                     }
 
-                    if (Math.Abs(rects[j].Y - (rects[i].Y + current.Height)) > rects[j].Height * 2)
-                        break;
+                    if (rects[j].Y > current.Y + current.Height + (rects[j].Height * 2))
+                        continue;
 
                     var l = new Cv.Rect(rects[i].X, 0, rects[i].Width, rects[i].Height);
                     var r = new Cv.Rect(rects[j].X, 0, rects[j].Width, rects[j].Height);
