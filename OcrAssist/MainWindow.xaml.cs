@@ -103,8 +103,6 @@ namespace OcrAssist
                 }
             }
 
-            //TODO: cut to get rid of left/right margin
-
             var merged = MergeRects(rectangles, src.Width, src.Height);
 
             List<Cv.Rect> filtered = new List<Cv.Rect>();
@@ -164,10 +162,6 @@ namespace OcrAssist
 
         private bool HeuristicCheck(Mat roi)
         {
-            /*var erosion = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(2, 2));
-            Mat erodedRoi = new Mat();
-            Cv2.Erode(roi, erodedRoi, erosion);*/
-
             Mat rowReduce = new Mat();
             Mat colReduce = new Mat();
             Cv2.Reduce(roi, rowReduce, ReduceDimension.Row, ReduceTypes.Sum, MatType.CV_32S);
@@ -201,14 +195,14 @@ namespace OcrAssist
                 return false;
             }
 
-            var csv = rowReduce.Dump(DumpFormat.Csv);
+            /*var csv = rowReduce.Dump(DumpFormat.Csv);
             var values = csv.Replace("[", "").Replace("]", "").Split(',').ToList().ConvertAll(s => int.Parse(s) > 0 ? 1 : 0);
 
             var segments = CountSegements(values);
             if (segments < 2)
             {
                 return false;
-            }
+            }*/
 
             return true;
         }
