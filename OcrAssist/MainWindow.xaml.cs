@@ -46,6 +46,16 @@ namespace OcrAssist
             }
         }
 
+        private void BulkTest()
+        {
+            var folder = @"C:\Users\Mike\Desktop\text recognition";
+            foreach (var file in Directory.EnumerateFiles(folder))
+            {
+                var output = TryOCR(file);
+                Cv2.ImWrite("out\\" + Path.GetFileName(file) + ".jpg", output);
+            }
+        }
+
         private Mat TryOCR(string fileName)
         {
             Mat debug = new Mat(fileName, ImreadModes.Color);
@@ -72,7 +82,7 @@ namespace OcrAssist
             Mat scaled = thresh - add;*/
 
             Mat grad = new Mat();
-            var expand = ((int)Math.Round(src.Width * 0.025, 0));
+            var expand = ((int)Math.Round(src.Width * 0.02, 0));
             var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(expand, 1));
             Cv2.MorphologyEx(src, grad, MorphTypes.Gradient, morphKernel);
 
@@ -86,7 +96,11 @@ namespace OcrAssist
             var rectangles = new List<Cv.Rect>();
             for (int i = 0; i < hierarchy.Length; i++)
             {
-                rectangles.Add(Cv2.BoundingRect(contours[i]));
+                var boundingRect = Cv2.BoundingRect(contours[i]);
+                if (!IsTooLarge(boundingRect, src) && !IsTooSmall(boundingRect, src))
+                {
+                    rectangles.Add(boundingRect);
+                }
             }
 
             //TODO: cut to get rid of left/right margin
@@ -102,10 +116,6 @@ namespace OcrAssist
                 if (HeuristicCheck(roi))
                 {
                     filtered.Add(merged[i]);
-                }
-                else
-                {
-                    Cv2.Rectangle(debug, merged[i], Scalar.Red, 4);
                 }
             }
 
@@ -268,6 +278,16 @@ namespace OcrAssist
             return output;
         }
 
+        private bool IsTooLarge(Cv.Rect r, Mat image)
+        {
+            return (r.Width > image.Width * 0.4 || r.Height > image.Height * 0.2);
+        }
+
+        private bool IsTooSmall(Cv.Rect r, Mat image)
+        {
+            return (r.Width < image.Width * 0.04 || r.Height < image.Height * 0.005);
+        }
+
         private List<List<Cv.Rect>> GroupRects(List<Cv.Rect> rects, Mat debug)
         {
             rects.Sort((l, r) => l.Y.CompareTo(r.Y));
@@ -282,7 +302,7 @@ namespace OcrAssist
 
                 var current = rects[i];
 
-                if (current.Width > debug.Width * 0.5 || current.Height > debug.Height * 0.25)
+                if (IsTooLarge(current, debug))
                     continue;
 
                 List<Cv.Rect> group = new List<Cv.Rect>();
@@ -290,7 +310,7 @@ namespace OcrAssist
 
                 for (int j = i + 1; j < rects.Count; j++)
                 {
-                    if (rects[j].Width > debug.Width * 0.5 || rects[j].Height > debug.Height * 0.25)
+                    if (IsTooLarge(rects[j], debug))
                     {
                         ignoreIndices.Add(j);
                         continue;
