@@ -37,13 +37,14 @@ namespace OcrAssist
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog();
+            /*OpenFileDialog ofd = new OpenFileDialog();
             ofd.Filter = "Image|*.jpg;*.png";
             if (ofd.ShowDialog() == true)
             {
                 Title = ofd.FileName;
                 TryOCR(ofd.FileName);
-            }
+            }*/
+            BulkTest();
         }
 
         private void BulkTest()
@@ -82,12 +83,13 @@ namespace OcrAssist
             Mat scaled = thresh - add;*/
 
             Mat grad = new Mat();
-            var expand = ((int)Math.Round(src.Width * 0.02, 0));
+            var expand = ((int)Math.Round(src.Width * 0.03, 0));
             var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(expand, 1));
-            Cv2.MorphologyEx(src, grad, MorphTypes.Gradient, morphKernel);
+            Cv2.MorphologyEx(src, grad, MorphTypes.Erode, morphKernel);
 
             Mat bw = new Mat();
             Cv2.Threshold(grad, bw, 32, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+            Cv2.BitwiseNot(bw, bw);
 
             Cv.Point[][] contours;
             HierarchyIndex[] hierarchy;
@@ -108,11 +110,14 @@ namespace OcrAssist
             List<Cv.Rect> filtered = new List<Cv.Rect>();
             for (int i = 0; i < merged.Count; i++)
             {
-                Mat roi = new Mat(thresh, merged[i]);
-
-                if (HeuristicCheck(roi))
+                var trimmed = TrimRect(thresh, merged[i]);
+                if (trimmed.Width > 0)
                 {
-                    filtered.Add(merged[i]);
+                    Mat roi = new Mat(thresh, trimmed);
+                    if (HeuristicCheck(roi))
+                    {
+                        filtered.Add(merged[i]);
+                    }
                 }
             }
 
@@ -132,7 +137,7 @@ namespace OcrAssist
                         groupRect = groupRect.Union(rect);
                     }
 
-                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 2);
+                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 4);
 
                     Mat groupRoi = new Mat(src, groupRect);
 
@@ -158,6 +163,37 @@ namespace OcrAssist
             Image.Source = imageSource;
 
             return debug;
+        }
+
+        private Cv.Rect TrimRect(Mat thresh, Cv.Rect rect)
+        {
+            Mat roi = new Mat(thresh, rect);
+            Mat rowReduce = new Mat();
+            Cv2.Reduce(roi, rowReduce, ReduceDimension.Row, ReduceTypes.Sum, MatType.CV_32S);
+
+            var csv = rowReduce.Dump(DumpFormat.Csv);
+            var values = csv.Replace("[", "").Replace("]", "").Split(',').ToList().ConvertAll(s => int.Parse(s) > 0 ? 1 : 0);
+
+            int lCount = 0;
+            int rCount = 0;
+            foreach (var val in values)
+            {
+                if (val > 0)
+                    break;
+                lCount++;
+            }
+
+            values.Reverse();
+            foreach (var val in values)
+            {
+                if (val > 0)
+                    break;
+                rCount++;
+            }
+
+            var x = rect.X + lCount;
+            var width = Math.Max(0, rect.Width - (lCount + rCount));
+            return new Cv.Rect(x, rect.Y, width, rect.Height);
         }
 
         private bool HeuristicCheck(Mat roi)
@@ -322,7 +358,7 @@ namespace OcrAssist
                         var lArea = rects[i].Width * rects[i].Height;
                         var rArea = rects[j].Width * rects[j].Height;
 
-                        if (intersectArea > (lArea * 0.4) && intersectArea > (rArea * 0.4))
+                        if (intersectArea > (lArea * 0.3) && intersectArea > (rArea * 0.3))
                         {
                             current = current.Union(rects[j]);
                             group.Add(rects[j]);
