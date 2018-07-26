@@ -65,24 +65,8 @@ namespace OcrAssist
             Cv2.AdaptiveThreshold(src, thresh, 255, AdaptiveThresholdTypes.MeanC, ThresholdTypes.Binary, 25, 10);
             Cv2.BitwiseNot(thresh, thresh);
 
-            /*var vStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(1, src.Rows / 50));
-            Mat vertical = new Mat();
-            Cv2.Erode(thresh, vertical, vStructure, new Cv.Point(-1, -1));
-            Cv2.Dilate(vertical, vertical, vStructure, new Cv.Point(-1, -1)); 
-
-            var hStructure = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, 1));
-            Mat horizontal = new Mat();
-            Cv2.Erode(thresh, horizontal, hStructure, new Cv.Point(-1, -1));
-            Cv2.Dilate(horizontal, horizontal, hStructure, new Cv.Point(-1, -1)); 
-
-            Mat add = new Mat();
-            Cv2.AddWeighted(vertical, 255, horizontal, 255, 0, add);
-            //var dilateElement = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(src.Cols / 50, src.Rows / 50));
-            //Cv2.Dilate(add, add, dilateElement);
-            Mat scaled = thresh - add;*/
-
             Mat grad = new Mat();
-            var expand = ((int)Math.Round(src.Width * 0.03, 0));
+            var expand = ((int)Math.Round(src.Width * 0.025, 0));
             var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(expand, 1));
             Cv2.MorphologyEx(src, grad, MorphTypes.Erode, morphKernel);
 
@@ -136,7 +120,7 @@ namespace OcrAssist
                         groupRect = groupRect.Union(rect);
                     }
 
-                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 4);
+                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 2);
 
                     Mat groupRoi = new Mat(src, groupRect);
 
