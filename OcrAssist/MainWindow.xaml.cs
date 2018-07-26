@@ -120,6 +120,9 @@ namespace OcrAssist
                         groupRect = groupRect.Union(rect);
                     }
 
+                    groupRect.Inflate(5, 5);
+                    groupRect = FixInvalidRects(groupRect, src.Width, src.Height);
+
                     Cv2.Rectangle(debug, groupRect, Scalar.Purple, 2);
 
                     Mat groupRoi = new Mat(src, groupRect);
@@ -364,7 +367,7 @@ namespace OcrAssist
             var merged = new List<Cv.Rect>();
             for (int i = 0; i < rects.Count; i++)
             {
-                FixInvalidRects(rects[i], width, height);
+                rects[i] = FixInvalidRects(rects[i], width, height);
 
                 if (!ignoreIndices.Contains(i))
                 {
@@ -374,7 +377,7 @@ namespace OcrAssist
             return merged;
         }
 
-        private static void FixInvalidRects(Cv.Rect rect, int width, int height)
+        private static Cv.Rect FixInvalidRects(Cv.Rect rect, int width, int height)
         {
             if (rect.X < 0)
                 rect.X = 0;
@@ -393,6 +396,8 @@ namespace OcrAssist
 
             if (rect.Height + rect.Y > height)
                 rect.Height = height - rect.Y;
+
+            return rect;
         }
     }
 }
