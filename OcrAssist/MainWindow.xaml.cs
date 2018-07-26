@@ -37,14 +37,13 @@ namespace OcrAssist
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            /*OpenFileDialog ofd = new OpenFileDialog();
+            OpenFileDialog ofd = new OpenFileDialog();
             ofd.Filter = "Image|*.jpg;*.png";
             if (ofd.ShowDialog() == true)
             {
                 Title = ofd.FileName;
                 TryOCR(ofd.FileName);
-            }*/
-            BulkTest();
+            }
         }
 
         private void BulkTest()
@@ -209,36 +208,10 @@ namespace OcrAssist
             Cv2.ImWrite("roi-row.tiff", rowReduce);
             Cv2.ImWrite("roi-col.tiff", colReduce);*/
 
-            if (!HeuristicRowCheck(rowReduce))
-            {
-                return false;
-            }
-
             if (!HeuristicColumnCheck(colReduce))
             {
                 return false;
             }
-
-            return true;
-        }
-
-        private bool HeuristicRowCheck(Mat rowReduce)
-        {
-            var rowPercent = Math.Round((double)Cv2.CountNonZero(rowReduce) / rowReduce.Cols, 2);
-
-            if (rowPercent < 0.55 || rowPercent > 0.95)
-            {
-                return false;
-            }
-
-            /*var csv = rowReduce.Dump(DumpFormat.Csv);
-            var values = csv.Replace("[", "").Replace("]", "").Split(',').ToList().ConvertAll(s => int.Parse(s) > 0 ? 1 : 0);
-
-            var segments = CountSegements(values);
-            if (segments < 2)
-            {
-                return false;
-            }*/
 
             return true;
         }
