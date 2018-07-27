@@ -20,6 +20,6 @@
         <ScrollViewer Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="5">
             <TextBlock x:Name="ResultText" FontSize="12" Margin="5" />
         </ScrollViewer>
-        <Button Click="Button_Click" Grid.Row="1" Height="20" Grid.ColumnSpan="2">Run</Button>
+        <Button x:Name="RunButton" Click="Button_Click" Grid.Row="1" Height="20" Grid.ColumnSpan="2" IsEnabled="False">Loading...</Button>
     </Grid>
 </Window>

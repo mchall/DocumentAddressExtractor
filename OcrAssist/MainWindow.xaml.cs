@@ -10,6 +10,9 @@ using System.Linq;
 using Tesseract;
 using Cv = OpenCvSharp;
 using System.Text;
+using edu.stanford.nlp.ie.crf;
+using System.Threading.Tasks;
+using edu.stanford.nlp.util;
 
 namespace OcrAssist
 {
@@ -19,11 +22,20 @@ namespace OcrAssist
     public partial class MainWindow : System.Windows.Window
     {
         private TesseractEngine _ocr;
+        private CRFClassifier _classifier;
 
         public MainWindow()
         {
             InitializeComponent();
+            Load3rdParty();
+        }
+
+        private async Task Load3rdParty()
+        {
             _ocr = new TesseractEngine("./tessdata", "eng", EngineMode.Default);
+            _classifier = await Task.Run(() => CRFClassifier.getClassifierNoExceptions(@"english.all.3class.distsim.crf.ser.gz"));
+            RunButton.Content = "Run";
+            RunButton.IsEnabled = true;
         }
 
         private string TryOcr(byte[] buffer)
@@ -31,7 +43,21 @@ namespace OcrAssist
             var pix = Pix.LoadTiffFromMemory(buffer);
             using (var page = _ocr.Process(pix, PageSegMode.SingleBlock))
             {
-                return page.GetText();
+                var text = page.GetText();
+
+                bool hasPerson = false;
+                bool hasLocation = false;
+                foreach(Triple result in _classifier.classifyToCharacterOffsets(text).toArray())
+                {
+                    hasPerson |= result.first().ToString() == "PERSON" && Convert.ToInt32(result.second().ToString()) < text.IndexOf('\n');
+                    hasLocation |= result.first().ToString() == "LOCATION";
+                }
+
+                if (hasPerson)
+                    return text;
+                return String.Empty;
+
+                //return text;
             }
         }
 
