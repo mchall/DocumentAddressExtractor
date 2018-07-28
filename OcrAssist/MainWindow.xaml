@@ -3,9 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:gif="http://wpfanimatedgif.codeplex.com" 
         xmlns:local="clr-namespace:OcrAssist"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="OcrAssist" Height="450" Width="800">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -21,5 +22,6 @@
             <TextBlock x:Name="ResultText" FontSize="12" Margin="5" />
         </ScrollViewer>
         <Button x:Name="RunButton" Click="Button_Click" Grid.Row="1" Height="20" Grid.ColumnSpan="2" IsEnabled="False">Loading...</Button>
+        <Image x:Name="Loading" gif:ImageBehavior.AnimatedSource="/OcrAssist;component/loading.gif" Height="250" Width="250" Grid.ColumnSpan="2" Grid.RowSpan="2" Visibility="Collapsed" />
     </Grid>
 </Window>

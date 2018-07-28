@@ -32,11 +32,51 @@ namespace OcrAssist
 
         private async Task Load3rdParty()
         {
+            Loading.Visibility = Visibility.Visible;
             _ocr = new TesseractEngine("./tessdata", "eng", EngineMode.Default);
             _classifier = await Task.Run(() => CRFClassifier.getClassifierNoExceptions(@"english.all.3class.distsim.crf.ser.gz"));
             RunButton.Content = "Run";
             RunButton.IsEnabled = true;
+            Loading.Visibility = Visibility.Collapsed;
         }
+
+        private async void Button_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "Image|*.jpg;*.png";
+            if (ofd.ShowDialog() == true)
+            {
+                Loading.Visibility = Visibility.Visible;
+                RunButton.Content = "Crunching...";
+                RunButton.IsEnabled = false;
+
+                var output = await Task.Run(() => TryOCR(ofd.FileName));
+
+                MemoryStream ms = new MemoryStream();
+                output.DebugImage.WriteToStream(ms);
+                var imageSource = new BitmapImage();
+                imageSource.BeginInit();
+                imageSource.StreamSource = ms;
+                imageSource.EndInit();
+                Image.Source = imageSource;
+
+                ResultText.Text = output.OcrText;
+
+                RunButton.Content = "Run";
+                RunButton.IsEnabled = true;
+                Loading.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /*private void BulkTest()
+        {
+            var folder = @"C:\Users\Mike\Desktop\text recognition";
+            foreach (var file in Directory.EnumerateFiles(folder))
+            {
+                var output = TryOCR(file);
+                Cv2.ImWrite("out\\" + Path.GetFileName(file) + ".jpg", output.DebugImage);
+            }
+        }*/
 
         private string TryOcr(byte[] buffer)
         {
@@ -59,28 +99,7 @@ namespace OcrAssist
             }
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Filter = "Image|*.jpg;*.png";
-            if (ofd.ShowDialog() == true)
-            {
-                Title = ofd.FileName;
-                TryOCR(ofd.FileName);
-            }
-        }
-
-        private void BulkTest()
-        {
-            var folder = @"C:\Users\Mike\Desktop\text recognition";
-            foreach (var file in Directory.EnumerateFiles(folder))
-            {
-                var output = TryOCR(file);
-                Cv2.ImWrite("out\\" + Path.GetFileName(file) + ".jpg", output);
-            }
-        }
-
-        private Mat TryOCR(string fileName)
+        private OcrResult TryOCR(string fileName)
         {
             Mat debug = new Mat(fileName, ImreadModes.Color);
             Mat src = debug.CvtColor(ColorConversionCodes.RGB2GRAY);
@@ -170,17 +189,7 @@ namespace OcrAssist
                 }
             }
 
-            ResultText.Text = sb.ToString();
-
-            MemoryStream ms = new MemoryStream();
-            debug.WriteToStream(ms);
-            var imageSource = new BitmapImage();
-            imageSource.BeginInit();
-            imageSource.StreamSource = ms;
-            imageSource.EndInit();
-            Image.Source = imageSource;
-
-            return debug;
+            return new OcrResult() { DebugImage = debug, OcrText = sb.ToString() };
         }
 
         private Cv.Rect TrimRect(Mat thresh, Cv.Rect rect)
