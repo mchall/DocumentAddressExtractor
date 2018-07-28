@@ -78,24 +78,61 @@ namespace OcrAssist
             }
         }*/
 
-        private string TryOcr(byte[] buffer)
+        private bool TryOcrAddress(byte[] buffer, out string output)
         {
+            output = string.Empty;
+
             var pix = Pix.LoadTiffFromMemory(buffer);
             using (var page = _ocr.Process(pix, PageSegMode.SingleBlock))
             {
-                var text = page.GetText();
+                var pageText = page.GetText();
+                var lines = pageText.Split(new string[2] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                var flat = String.Join("\n", lines);
+
+                if (lines.Length < 2)
+                {
+                    return false;
+                }
+
+                if (lines[0].Any(c => Char.IsDigit(c)))
+                {
+                    return false;
+                }
+
+                if (!lines[1].Any(c => Char.IsDigit(c)))
+                {
+                    return false;
+                }
+
+                if (!lines[1].Any(c => Char.IsLetter(c)))
+                {
+                    return false;
+                }
+
+                if (lines.Length > 2 && !lines[2].Any(c => Char.IsDigit(c)))
+                {
+                    return false;
+                }
+
+                if (lines.Length > 2 && !lines[2].Any(c => Char.IsLetter(c)))
+                {
+                    return false;
+                }
 
                 bool hasPerson = false;
                 bool hasLocation = false;
-                foreach(Triple result in _classifier.classifyToCharacterOffsets(text).toArray())
+                foreach (Triple result in _classifier.classifyToCharacterOffsets(lines[0]).toArray())
                 {
-                    hasPerson |= result.first().ToString() == "PERSON" && Convert.ToInt32(result.second().ToString()) < text.IndexOf('\n');
+                    hasPerson |= result.first().ToString() == "PERSON";
                     hasLocation |= result.first().ToString() == "LOCATION";
                 }
 
                 if (hasPerson)
-                    return text;
-                return String.Empty;
+                {
+                    output = flat;
+                    return true;
+                }
+                return false;
             }
         }
 
@@ -176,14 +213,21 @@ namespace OcrAssist
                     groupRect.Inflate(5, 5);
                     groupRect = FixInvalidRects(groupRect, src.Width, src.Height);
 
-                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 4);
-
                     Mat groupRoi = new Mat(src, groupRect);
 
                     byte[] buff;
                     if (Cv2.ImEncode(".tiff", groupRoi, out buff))
                     {
-                        sb.AppendLine(TryOcr(buff));
+                        string output;
+                        if(TryOcrAddress(buff, out output))
+                        {
+                            sb.AppendLine(output);
+                            Cv2.Rectangle(debug, groupRect, Scalar.Purple, 6);
+                        }
+                        else
+                        {
+                            Cv2.Rectangle(debug, groupRect, Scalar.Lime, 2);
+                        }
                         sb.AppendLine();
                     }
                 }
