@@ -56,8 +56,6 @@ namespace OcrAssist
                 if (hasPerson)
                     return text;
                 return String.Empty;
-
-                //return text;
             }
         }
 
@@ -116,6 +114,11 @@ namespace OcrAssist
 
             var merged = MergeRects(rectangles, src.Width, src.Height);
 
+            foreach(var rect in merged)
+            {
+                Cv2.Rectangle(debug, rect, Scalar.Red, 2);
+            }
+
             List<Cv.Rect> filtered = new List<Cv.Rect>();
             for (int i = 0; i < merged.Count; i++)
             {
@@ -131,6 +134,11 @@ namespace OcrAssist
             }
 
             filtered = ZoneOfInterest(filtered, debug);
+
+            foreach (var rect in filtered)
+            {
+                Cv2.Rectangle(debug, rect, Scalar.Orange, 2);
+            }
 
             var grouped = GroupRects(filtered, debug);
 
@@ -149,7 +157,7 @@ namespace OcrAssist
                     groupRect.Inflate(5, 5);
                     groupRect = FixInvalidRects(groupRect, src.Width, src.Height);
 
-                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 2);
+                    Cv2.Rectangle(debug, groupRect, Scalar.Purple, 4);
 
                     Mat groupRoi = new Mat(src, groupRect);
 
@@ -163,8 +171,6 @@ namespace OcrAssist
             }
 
             ResultText.Text = sb.ToString();
-
-            //Cv2.ImWrite("ocr.tiff", ocr);
 
             MemoryStream ms = new MemoryStream();
             debug.WriteToStream(ms);
@@ -344,7 +350,7 @@ namespace OcrAssist
                         var lArea = rects[i].Width * rects[i].Height;
                         var rArea = rects[j].Width * rects[j].Height;
 
-                        if (intersectArea > (lArea * 0.3) && intersectArea > (rArea * 0.3))
+                        if (intersectArea > (lArea * 0.25) && intersectArea > (rArea * 0.25))
                         {
                             current = current.Union(rects[j]);
                             group.Add(rects[j]);
