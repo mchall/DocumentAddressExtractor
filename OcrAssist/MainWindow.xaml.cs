@@ -170,7 +170,7 @@ namespace OcrAssist
 
             var merged = MergeRects(rectangles, src.Width, src.Height);
 
-            foreach(var rect in merged)
+            foreach (var rect in merged)
             {
                 Cv2.Rectangle(debug, rect, Scalar.Red, 2);
             }
@@ -189,7 +189,7 @@ namespace OcrAssist
                 }
             }
 
-            filtered = ZoneOfInterest(filtered, debug);
+            //filtered = ZoneOfInterest(filtered, debug);
 
             foreach (var rect in filtered)
             {
