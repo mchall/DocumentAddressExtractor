@@ -87,37 +87,14 @@ namespace OcrAssist
             {
                 var pageText = page.GetText();
                 var lines = pageText.Split(new string[2] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
-                var flat = String.Join("\n", lines);
 
-                if (lines.Length < 2)
+                if (!HeuristicAddressCheck(lines))
                 {
                     return false;
                 }
 
-                if (lines[0].Any(c => Char.IsDigit(c)))
-                {
-                    return false;
-                }
-
-                if (!lines[1].Any(c => Char.IsDigit(c)))
-                {
-                    return false;
-                }
-
-                if (!lines[1].Any(c => Char.IsLetter(c)))
-                {
-                    return false;
-                }
-
-                if (lines.Length > 2 && !lines[2].Any(c => Char.IsDigit(c)))
-                {
-                    return false;
-                }
-
-                if (lines.Length > 2 && !lines[2].Any(c => Char.IsLetter(c)))
-                {
-                    return false;
-                }
+                //assume 3 line address
+                var flat = String.Join("\n", lines.Take(3));
 
                 bool hasPerson = false;
                 bool hasLocation = false;
@@ -134,6 +111,31 @@ namespace OcrAssist
                 }
                 return false;
             }
+        }
+
+        private bool HeuristicAddressCheck(string[] lines)
+        {
+            if (lines.Length < 3)
+            {
+                return false;
+            }
+
+            if (lines[0].Any(c => Char.IsDigit(c))) //name
+            {
+                return false;
+            }
+
+            if (!lines[1].Any(c => Char.IsDigit(c)) || !lines[1].Any(c => Char.IsLetter(c))) //address line 1
+            {
+                return false;
+            }
+
+            if (!lines[2].Any(c => Char.IsDigit(c)) || !lines[2].Any(c => Char.IsLetter(c))) //address line 2
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private OcrResult TryOCR(string fileName)
@@ -222,13 +224,13 @@ namespace OcrAssist
                         if(TryOcrAddress(buff, out output))
                         {
                             sb.AppendLine(output);
+                            sb.AppendLine();
                             Cv2.Rectangle(debug, groupRect, Scalar.Purple, 6);
                         }
                         else
                         {
                             Cv2.Rectangle(debug, groupRect, Scalar.Lime, 2);
                         }
-                        sb.AppendLine();
                     }
                 }
             }
