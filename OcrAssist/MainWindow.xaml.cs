@@ -436,7 +436,13 @@ namespace OcrAssist
                         continue;
                     }
 
-                    if (rects[i].IntersectsWith(rects[j]))
+                    var hExpand = (int)Math.Round(width * 0.01, 0);
+                    var l = new Cv.Rect(rects[i].X, rects[i].Y, rects[i].Width, rects[i].Height);
+                    var r = new Cv.Rect(rects[j].X, rects[j].Y, rects[j].Width, rects[j].Height);
+                    l.Inflate(hExpand / 2, 0);
+                    r.Inflate(hExpand / 2, 0);
+
+                    if (l.IntersectsWith(r))
                     {
                         var union = rects[i].Union(rects[j]);
 
