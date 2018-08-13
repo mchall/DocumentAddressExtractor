@@ -1,5 +1,5 @@
 # Document Address Extractor
-Attempts to find an address in a document. 
+Attempts to find and extract an address in a document like a utility bill. 
 
 <i>NOTE: Assumes a 3 line address in following format:</i>
 
