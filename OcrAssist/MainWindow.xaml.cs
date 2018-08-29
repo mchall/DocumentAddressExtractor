@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
@@ -143,10 +143,6 @@ namespace OcrAssist
             Mat debug = new Mat(fileName, ImreadModes.Color);
             Mat src = debug.CvtColor(ColorConversionCodes.RGB2GRAY);
 
-            Mat thresh = new Mat();
-            Cv2.AdaptiveThreshold(src, thresh, 255, AdaptiveThresholdTypes.MeanC, ThresholdTypes.Binary, 25, 10);
-            Cv2.BitwiseNot(thresh, thresh);
-
             Mat grad = new Mat();
             var expand = ((int)Math.Round(src.Width * 0.025, 0));
             var morphKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Cv.Size(expand, 1));
@@ -177,28 +173,7 @@ namespace OcrAssist
                 Cv2.Rectangle(debug, rect, Scalar.Red, 2);
             }
 
-            List<Cv.Rect> filtered = new List<Cv.Rect>();
-            for (int i = 0; i < merged.Count; i++)
-            {
-                var trimmed = TrimRect(thresh, merged[i]);
-                if (trimmed.Width > 0)
-                {
-                    Mat roi = new Mat(thresh, trimmed);
-                    if (HeuristicCheck(roi))
-                    {
-                        filtered.Add(merged[i]);
-                    }
-                }
-            }
-
-            //filtered = ZoneOfInterest(filtered, debug);
-
-            foreach (var rect in filtered)
-            {
-                Cv2.Rectangle(debug, rect, Scalar.Orange, 2);
-            }
-
-            var grouped = GroupRects(filtered, debug);
+            var grouped = GroupRects(merged, debug);
 
             StringBuilder sb = new StringBuilder();
 
@@ -238,72 +213,6 @@ namespace OcrAssist
             return new OcrResult() { DebugImage = debug, OcrText = sb.ToString() };
         }
 
-        private Cv.Rect TrimRect(Mat thresh, Cv.Rect rect)
-        {
-            Mat roi = new Mat(thresh, rect);
-            Mat rowReduce = new Mat();
-            Cv2.Reduce(roi, rowReduce, ReduceDimension.Row, ReduceTypes.Sum, MatType.CV_32S);
-
-            var csv = rowReduce.Dump(DumpFormat.Csv);
-            var values = csv.Replace("[", "").Replace("]", "").Split(',').ToList().ConvertAll(s => int.Parse(s) > 0 ? 1 : 0);
-
-            int lCount = 0;
-            int rCount = 0;
-            foreach (var val in values)
-            {
-                if (val > 0)
-                    break;
-                lCount++;
-            }
-
-            values.Reverse();
-            foreach (var val in values)
-            {
-                if (val > 0)
-                    break;
-                rCount++;
-            }
-
-            var x = rect.X + lCount;
-            var width = Math.Max(0, rect.Width - (lCount + rCount));
-            return new Cv.Rect(x, rect.Y, width, rect.Height);
-        }
-
-        private bool HeuristicCheck(Mat roi)
-        {
-            Mat rowReduce = new Mat();
-            Mat colReduce = new Mat();
-            Cv2.Reduce(roi, rowReduce, ReduceDimension.Row, ReduceTypes.Sum, MatType.CV_32S);
-            Cv2.Reduce(roi, colReduce, ReduceDimension.Column, ReduceTypes.Sum, MatType.CV_32S);
-
-            //var totPercent = Math.Round((double)Cv2.CountNonZero(roi) / (roi.Width * roi.Height), 2);
-
-            /*Cv2.ImWrite("roi.tiff", roi);
-            Cv2.ImWrite("roi-row.tiff", rowReduce);
-            Cv2.ImWrite("roi-col.tiff", colReduce);*/
-
-            if (!HeuristicColumnCheck(colReduce))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private bool HeuristicColumnCheck(Mat colReduce)
-        {
-            var csv = colReduce.Dump(DumpFormat.Csv);
-            var values = csv.Replace("[", "").Replace("]", "").Replace("\n", "").Split(';').ToList().ConvertAll(s => int.Parse(s) > 0 ? 1 : 0);
-
-            var segments = CountSegements(values);
-            if (segments > 1)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
         private int CountSegements(List<int> values)
         {
             int segmentCount = 0;
@@ -323,35 +232,6 @@ namespace OcrAssist
             }
 
             return segmentCount - (prevWasZero ? 1 : 0);
-        }
-
-        private List<Cv.Rect> ZoneOfInterest(List<Cv.Rect> input, Mat debug)
-        {
-            List<Cv.Rect> output = new List<Cv.Rect>();
-
-            for (int i = 0; i < input.Count; i++)
-            {
-                var l = new Cv.Rect(input[i].X + input[i].Width, input[i].Y, input[i].Width / 2, 2);
-                var r = new Cv.Rect(input[i].X - (input[i].Width / 2), input[i].Y, input[i].Width / 2, 2);
-
-                int numIntersection = 0;
-                for (int j = 0; j < input.Count; j++)
-                {
-                    if (i == j)
-                        continue;
-
-                    if (l.IntersectsWith(input[j]) || r.IntersectsWith(input[j]))
-                    {
-                        numIntersection++;
-                    }
-                }
-
-                if (numIntersection < 2)
-                {
-                    output.Add(input[i]);
-                }
-            }
-            return output;
         }
 
         private bool IsTooLarge(Cv.Rect r, Mat image)
@@ -492,4 +372,3 @@ namespace OcrAssist
         }
     }
 }
- 
